@@ -47,6 +47,14 @@
       return false;
     }
   }
+  
+  function siteReportedSafe(hostname) {
+    try {
+      return sessionStorage.getItem("phishingproto.reported_safe:" + hostname) === "1";
+    } catch (e) {
+      return false;
+    }
+  }
   function setSessionDismissed(hostname) {
     try {
       sessionStorage.setItem("phishingproto.dismissed:" + hostname, "1");
@@ -54,9 +62,106 @@
   }
 
   // ---------------------------
-  // Send to background for analysis
+  // === NEW: Representative image extractor for CNN
+  // Attempts to get a sensible image for CNN scoring:
+  // - meta[property="og:image"]
+  // - first same-origin <img> largest area
+  // - data: URL images
+  // - returns base64 data URI string or null
   // ---------------------------
-  async function sendForAnalysis(trigger = "auto") {
+  async function getRepresentativeImageBase64(maxWidth = 800) {
+    try {
+      // 1) og:image
+      const og = document.querySelector('meta[property="og:image"], meta[name="og:image"]');
+      if (og && og.content) {
+        const url = og.content;
+        const b64 = await fetchImageToDataUrl(url);
+        if (b64) return b64;
+      }
+
+      // 2) find largest same-origin <img>
+      const imgs = Array.from(document.images || []);
+      // filter data: and same-origin images
+      const candidates = imgs.filter(img => {
+        if (!img || !img.src) return false;
+        try {
+          if (img.src.startsWith('data:')) return true;
+          const srcUrl = new URL(img.src, window.location.href);
+          return srcUrl.hostname === window.location.hostname;
+        } catch (e) {
+          return false;
+        }
+      });
+      // sort by visible area (width*height)
+      candidates.sort((a, b) => {
+        const aw = (a.naturalWidth || a.width || 0);
+        const ah = (a.naturalHeight || a.height || 0);
+        const bw = (b.naturalWidth || b.width || 0);
+        const bh = (b.naturalHeight || b.height || 0);
+        return (bw * bh) - (aw * ah);
+      });
+      for (const img of candidates) {
+        try {
+          const b64 = await fetchImageToDataUrl(img.src);
+          if (b64) return b64;
+        } catch (e) { /* ignore and continue */ }
+      }
+
+      // 3) fallback: take a tiny screenshot of the page viewport using toDataURL via inpage canvas
+      // NOTE: browsers restrict cross-origin content; this is a best-effort cheap fallback: draw some visible area if possible
+      // We'll try to capture via HTMLCanvasElement.drawImage if an <svg> or same-origin image exists; otherwise skip.
+      return null;
+    } catch (e) {
+      console.warn("getRepresentativeImageBase64 failed", e);
+      return null;
+    }
+  }
+
+  // Helper: fetch image bytes and return data:image/png;base64,... or data URL if it's already data:
+  async function fetchImageToDataUrl(src) {
+    try {
+      if (!src) return null;
+      if (src.startsWith("data:")) return src; // already a data URL
+      const u = new URL(src, window.location.href);
+      // Only allow same-origin fetch here for safety and to avoid CORS issues.
+      if (u.hostname !== window.location.hostname && u.protocol.startsWith('http')) {
+        // try to fetch via CORS — but silently skip if blocked
+        // We'll attempt fetch once (server may allow CORS)
+        try {
+          const r = await fetch(u.href, { mode: 'cors' });
+          if (!r.ok) return null;
+          const blob = await r.blob();
+          return await blobToDataUrl(blob);
+        } catch (e) {
+          return null;
+        }
+      } else {
+        // same-origin — safe to fetch
+        const r2 = await fetch(u.href);
+        if (!r2.ok) return null;
+        const blob = await r2.blob();
+        return await blobToDataUrl(blob);
+      }
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function blobToDataUrl(blob) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // ---------------------------
+  // Send to background for analysis
+  // - includes text (LLM) and attempts to attach image_b64 (CNN) if available
+  // - supports "run_models" array in payload (e.g. ["cnn","gnn"]) for targeted runs
+  // ---------------------------
+  async function sendForAnalysis(trigger = "auto", extra = {}) {
     try {
       const payload = {
         url: window.location.href,
@@ -65,9 +170,31 @@
         meta_description: (document.querySelector('meta[name="description"]') || {}).content || "",
         text: getVisibleText(),
         trigger,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        // allow extra to include run_models etc.
+        ...extra
       };
 
+      // === NEW: attempt to attach representative image for CNN if backend asked or for manual triggers
+      // Only fetch image if caller requested cnn or allowed image attachment
+      // ALWAYS attempt to attach a representative image for CNN checks (best-effort)
+try {
+  const imgB64 = await getRepresentativeImageBase64();
+  if (imgB64) {
+    payload.image_b64 = imgB64;
+    console.debug("[content] Attached image_b64 length:", payload.image_b64.length);
+  } else {
+    // no image found — still send domain/text
+    console.debug("[content] No representative image found for this page");
+  }
+} catch (e) {
+  console.warn("image attach failed", e);
+}
+
+// Ensure domain is present (GNN needs domain)
+payload.domain = window.location.hostname || payload.hostname || "";
+
+      console.debug("[content] sending analyze payload:", payload);
       chrome.runtime.sendMessage({ action: "analyze_page", payload }, (response) => {
         if (response && response.result) {
           const result = response.result;
@@ -114,7 +241,8 @@
             sendResponse({ ok: false, info: "dismissed_for_session" });
             return;
           }
-          sendForAnalysis("manual");
+          sendForAnalysis("manual", { run_models: ["text","cnn","gnn"] });
+
           sendResponse({ ok: true, info: "reanalysis_triggered" });
         } else {
           sendResponse({ ok: false, error: "sendForAnalysis not available" });
@@ -156,82 +284,7 @@
       threats.push("Redirect-to-scam — you may be redirected to other fraudulent pages (e.g. fake payment pages or prize scams).");
     }
 
-    if (reasons.some(r => /no https|http only|not secure|ssl/i.test(r)) || (components && components.has_https === false)) {
-      threats.push("Connection interception risk — the page uses an insecure connection, which could expose data in transit.");
-    }
-
-    if (threats.length === 0 && score >= 0.6) {
-      threats.push("High-risk behavior observed — likely phishing or fraud attempting to steal information or money.");
-    }
-
-    const out = [];
-    for (const t of threats) {
-      const key = t.toLowerCase();
-      if (!out.find(x => x.toLowerCase() === key)) out.push(t);
-      if (out.length >= 3) break;
-    }
-    return out;
-  }
-
-  function buildPlainExplanations(result) {
-    const explanations = [];
-    try {
-      const threatPaths = buildThreatPaths(result);
-      threatPaths.slice(0, 3).forEach(tp => explanations.push(tp));
-    } catch (e) {
-      console.error("buildPlainExplanations: threatPaths error", e);
-    }
-
-    const score = typeof result.aggregate_score === "number" ? result.aggregate_score : (result.score || (result.text && result.text.score) || null);
-    if (score != null) {
-      const pct = Math.round((parseFloat(score) || 0) * 100);
-      explanations.push(`Overall risk: ${pct}%`);
-    }
-
-    const textReasons = (result.text && result.text.reasons) || result.reasons || result.reasons_text || result.combined_reasons || [];
-    let tlist = [];
-    if (Array.isArray(textReasons)) tlist = textReasons.map(String).filter(s => s && s.trim());
-    else if (typeof textReasons === "string") tlist = [textReasons];
-
-    tlist.slice(0, 3).forEach(r => {
-      let rr = r;
-      rr = rr.replace(/keyword[:\s]*/i, "Contains word:");
-      rr = rr.replace(/transformer label[:\s]*/i, "Model label:");
-      rr = rr.replace(/\b(verify|verification|verify your)\b/i, "Requests verification / account details");
-      explanations.push(rr);
-    });
-
-    const components = (result.url && result.url.components) || (result.url && result.url.raw && result.url.raw.components) || null;
-    if (components) {
-      if (typeof components.redirect_count === "number" && components.redirect_count > 0) {
-        explanations.push(`Redirects: ${components.redirect_count} hop(s)`);
-      }
-      if (components.has_https === false) explanations.push("Connection: No HTTPS (not secure)");
-      else if (components.has_https === true) explanations.push("Connection: HTTPS (secure)");
-      if (components.domain_age_days != null) {
-        const d = components.domain_age_days;
-        if (d < 30) explanations.push(`Domain age: ${d} days (very new)`);
-        else if (d < 90) explanations.push(`Domain age: ${d} days (recent)`);
-        else explanations.push(`Domain age: ${d} days`);
-      } else if (!components.registrar) {
-        explanations.push("Domain registration: unavailable");
-      }
-      if (components.registrar) explanations.push(`Registrar: ${components.registrar}`);
-      if (components.asn_org) explanations.push(`Hosting: ${components.asn_org}`);
-      else if (components.ip) explanations.push(`Server IP: ${components.ip}`);
-    } else {
-      const urlReasons = (result.url && result.url.reasons) || [];
-      if (Array.isArray(urlReasons) && urlReasons.length) urlReasons.slice(0, 3).forEach(ur => explanations.push(String(ur)));
-    }
-
-    const dedup = [];
-    for (const e of explanations) {
-      const s = (e || "").toString().trim();
-      if (!s) continue;
-      if (!dedup.find(x => x.toLowerCase() === s.toLowerCase())) dedup.push(s);
-      if (dedup.length >= 6) break;
-    }
-    return dedup;
+    return threats;
   }
 
   function headlineAndAdvice(result) {
@@ -239,11 +292,11 @@
     const score = typeof result.aggregate_score === "number" ? result.aggregate_score : (result.score || 0);
     const advice = { headline: "Unknown", short: "We couldn't determine risk.", className: "risk-unknown" };
 
-    if (label === "high" || score >= 0.6) {
+    if (label === "high" || score >= 0.7) {
       advice.headline = "High Risk";
       advice.short = "This site looks dangerous — do not enter passwords or personal info.";
       advice.className = "risk-high";
-    } else if (label === "medium" || score >= 0.35) {
+    } else if (label === "medium" || score >= 0.4) {
       advice.headline = "Medium Risk";
       advice.short = "This site looks suspicious — double-check the URL and avoid sensitive input.";
       advice.className = "risk-medium";
@@ -284,6 +337,37 @@
       removeBanner();
 
       const advice = headlineAndAdvice(result);
+      const reportedSafe = siteReportedSafe(window.location.hostname);
+      
+      // --- small inline model indicators (CNN / GNN) ---
+let _cnn_pct = "—";
+let _gnn_pct = "—";
+try {
+  const c = result.cnn_score ?? result.cnn_score_raw ?? (result.components_raw && result.components_raw.cnn) ?? (result.components && result.components.cnn);
+  const g = result.gnn_score ?? result.gnn_score_raw ?? (result.components_raw && result.components_raw.gnn) ?? (result.components && result.components.gnn);
+  function _norm(v) {
+    if (v === undefined || v === null || v === "") return null;
+    const n = Number(v);
+    if (isNaN(n)) return null;
+    if (n > 1 && n <= 100) return n / 100.0;
+    if (n > 100) return Math.min(1, n / 100.0);
+    return Math.max(0, Math.min(1, n));
+  }
+  const nc = _norm(c);
+  const ng = _norm(g);
+  if (nc !== null) _cnn_pct = `${Math.round(nc*100)}%`;
+  if (ng !== null) _gnn_pct = `${Math.round(ng*100)}%`;
+} catch (e) { /* ignore */ }
+
+// We'll show these next to the title in a compact way by injecting small spans
+const modelMini = `<div style="margin-left:8px;font-size:12px;opacity:0.95">
+  <span style="margin-right:8px">Visual: <strong>${_cnn_pct}</strong></span>
+  <span>Graph: <strong>${_gnn_pct}</strong></span>
+</div>`;
+
+// Add reported safe indicator
+const safeIndicator = reportedSafe ? `<div style="margin-top:4px;font-size:12px;color:rgba(255,255,255,0.9);background:rgba(0,255,0,0.2);padding:2px 6px;border-radius:4px;display:inline-block;">✓ Reported Safe</div>` : '';
+
       const bullets = buildPlainExplanations(result);
       if (!bullets.length) bullets.push("Suspicious signals detected (no detailed reasons available).");
 
@@ -301,7 +385,7 @@
       banner.style.justifyContent = "center";
       banner.style.pointerEvents = "auto";
       banner.style.transform = "translateY(-120%)";
-      banner.style.transition = "transform 330ms cubic-bezier(.2,.9,.2,1)";
+      banner.style.transition = "transform 330ms cubic-bezier(.2,9,2,1)";
       banner.style.backdropFilter = "saturate(120%) blur(0.6px)";
 
       // wrapper (visual)
@@ -328,7 +412,6 @@
       wrap.style.fontFamily = fontStack;
       wrap.style.fontSize = "15px";
       wrap.style.lineHeight = "1.35";
-      wrap.style.fontWeight = "500";
 
       // theme colors
       if (advice.className === "risk-high") {
@@ -347,7 +430,10 @@
                           <strong style="font-size:16px;font-weight:800">PhishingProto</strong>
                           <span style="background:rgba(255,255,255,0.08);padding:6px 8px;border-radius:8px;font-weight:700;font-size:12px">${escapeHtml(advice.headline)}</span>
                         </div>
+                        ${modelMini}
+                        ${safeIndicator}
                         <div style="margin-top:8px;font-size:13px;opacity:0.98">${escapeHtml(advice.short)}</div>`;
+
 
       // Center: bullets + "what you should do"
       const center = document.createElement("div");
@@ -372,6 +458,7 @@
         list.appendChild(li);
       });
 
+      // === REPLACED expandToggle block: keeps original behavior and adds model details block
       const expandToggle = document.createElement("button");
       expandToggle.textContent = bullets.length > 2 ? "View details" : "";
       expandToggle.style.marginTop = "8px";
@@ -392,6 +479,67 @@
         expandToggle.dataset.open = showing ? "0" : "1";
       });
 
+      // New: details block that shows model-specific fields (GNN / CNN) plus raw JSON
+      const detailBox = document.createElement("details");
+      detailBox.style.marginTop = "8px";
+      const summary = document.createElement("summary");
+      summary.textContent = "Show raw details (models)";
+      summary.style.cursor = "pointer";
+      summary.style.fontSize = "13px";
+      summary.style.color = "rgba(255,255,255,0.92)";
+      detailBox.appendChild(summary);
+
+      // Build contents (GNN / CNN preferred fields)
+      const modelsDiv = document.createElement("div");
+      modelsDiv.style.marginTop = "8px";
+      modelsDiv.style.fontSize = "13px";
+      modelsDiv.style.color = "rgba(255,255,255,0.95)";
+      try {
+        // try to extract common keys - non-fatal if absent
+        const gnnScore = result.gnn_score_raw ?? result.gnn_score ?? result.graph_score ?? result.score_raw ?? result.score;
+        const gnnNeighbors = result.neighbors_found ?? result.gnn_neighbors ?? result.neighbors_count ?? result.neighbors;
+        const cnnScore = result.cnn_score_raw ?? result.cnn_score ?? result.visual_score;
+        const bestBrand = (result.cnn && result.cnn.best_brand) || result.best_brand || "";
+        if (gnnScore !== undefined) {
+          const p = document.createElement("div");
+          p.textContent = `GNN score: ${String(gnnScore)}`;
+          modelsDiv.appendChild(p);
+        }
+        if (gnnNeighbors !== undefined) {
+          const p = document.createElement("div");
+          p.textContent = `GNN neighbors: ${String(gnnNeighbors)}`;
+          modelsDiv.appendChild(p);
+        }
+        if (cnnScore !== undefined) {
+          const p = document.createElement("div");
+          p.textContent = `CNN visual score: ${String(cnnScore)}`;
+          modelsDiv.appendChild(p);
+        }
+        if (bestBrand) {
+          const p = document.createElement("div");
+          p.textContent = `CNN best match: ${String(bestBrand)}`;
+          modelsDiv.appendChild(p);
+        }
+      } catch (e) {
+        console.warn("banner model fields extract error", e);
+      }
+
+      // fallback: raw JSON viewer
+      const rawPre = document.createElement("pre");
+      rawPre.style.whiteSpace = "pre-wrap";
+      rawPre.style.marginTop = "8px";
+      rawPre.style.background = "rgba(255,255,255,0.05)";
+      rawPre.style.padding = "8px";
+      rawPre.style.borderRadius = "6px";
+      try {
+        rawPre.textContent = JSON.stringify(result, null, 2);
+      } catch (e) {
+        rawPre.textContent = String(result);
+      }
+
+      detailBox.appendChild(modelsDiv);
+      detailBox.appendChild(rawPre);
+
       const what = document.createElement("div");
       what.style.marginTop = "8px";
       what.style.fontSize = "13px";
@@ -400,9 +548,10 @@
 
       center.appendChild(list);
       center.appendChild(expandToggle);
+      center.appendChild(detailBox);
       center.appendChild(what);
 
-      // Right: actions
+           // Right: actions
       const actions = document.createElement("div");
       actions.style.display = "flex";
       actions.style.flexDirection = "column";
@@ -410,6 +559,7 @@
       actions.style.minWidth = "160px";
       actions.style.alignItems = "flex-end";
 
+      // Details button (existing behavior)
       const detailsBtn = document.createElement("button");
       detailsBtn.className = "phishingproto-btn";
       detailsBtn.textContent = "Details";
@@ -421,8 +571,11 @@
       detailsBtn.style.color = "#fff";
       detailsBtn.style.fontWeight = "700";
       detailsBtn.addEventListener("click", () => {
+        console.debug("[content] detailsBtn clicked for", window.location.href);
         chrome.runtime.sendMessage({ action: "open_popup_for_url", url: window.location.href }, (resp) => {});
       });
+
+      
 
       const reportBtn = document.createElement("button");
       reportBtn.className = "phishingproto-btn outline";
@@ -437,7 +590,7 @@
       reportBtn.addEventListener("click", () => {
         try {
           reportBtn.disabled = true;
-          reportBtn.textContent = "Reporting...";
+          reportBtn.textContent = "Reporting.";
           const payload = {
             url: window.location.href,
             hostname: window.location.hostname,
@@ -448,6 +601,10 @@
           chrome.runtime.sendMessage({ action: "report_false_positive", payload }, (resp) => {
             if (resp && resp.ok) {
               reportBtn.textContent = "Reported ✓";
+              // Store in session storage that this site was reported safe
+              try {
+                sessionStorage.setItem("phishingproto.reported_safe:" + window.location.hostname, "1");
+              } catch (e) { /* ignore */ }
               setTimeout(() => { reportBtn.textContent = "Report Safe"; }, 2500);
             } else {
               reportBtn.textContent = "Report Failed";
@@ -487,9 +644,11 @@
         } catch (_) {}
       });
 
+      // Append actions in logical order: Details, Report, Dismiss
       actions.appendChild(detailsBtn);
       actions.appendChild(reportBtn);
       actions.appendChild(dismissBtn);
+
 
       wrap.appendChild(left);
       wrap.appendChild(center);
@@ -571,27 +730,28 @@
         console.debug("[content] auto-analyze preference:", enabled);
 
         if (enabled) {
-          let lastPath = location.pathname + location.search;
-          if (!sessionDismissed(window.location.hostname)) sendForAnalysis("auto");
+  let lastPath = location.pathname + location.search;
+  if (!sessionDismissed(window.location.hostname)) sendForAnalysis("auto", { run_models: ["text","cnn","gnn"] });
 
-          window.addEventListener("popstate", () => {
-            const newPath = location.pathname + location.search;
-            if (newPath !== lastPath) {
-              lastPath = newPath;
-              if (!sessionDismissed(window.location.hostname)) sendForAnalysis("auto");
-            }
-          });
+  window.addEventListener("popstate", () => {
+    const newPath = location.pathname + location.search;
+    if (newPath !== lastPath) {
+      lastPath = newPath;
+      if (!sessionDismissed(window.location.hostname)) sendForAnalysis("auto", { run_models: ["text","cnn","gnn"] });
+    }
+  });
 
-          const _push = history.pushState;
-          history.pushState = function () {
-            _push.apply(this, arguments);
-            const np = location.pathname + location.search;
-            if (np !== lastPath) {
-              lastPath = np;
-              if (!sessionDismissed(window.location.hostname)) sendForAnalysis("auto");
-            }
-          };
-        } else {
+  const _push = history.pushState;
+  history.pushState = function () {
+    _push.apply(this, arguments);
+    const np = location.pathname + location.search;
+    if (np !== lastPath) {
+      lastPath = np;
+      if (!sessionDismissed(window.location.hostname)) sendForAnalysis("auto", { run_models: ["text","cnn","gnn"] });
+    }
+  };
+        }
+ else {
           console.debug("content_script: auto-analyze disabled by user preference.");
         }
       });

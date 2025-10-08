@@ -23,7 +23,15 @@ def domain_whois_info(domain: str):
 
         age_days = None
         if creation_date and isinstance(creation_date, datetime):
-            age_days = (datetime.utcnow() - creation_date).days
+            # Handle timezone-aware vs timezone-naive datetime comparison
+            now = datetime.utcnow()
+            if creation_date.tzinfo is not None and now.tzinfo is None:
+                # creation_date is timezone-aware, now is naive
+                now = now.replace(tzinfo=creation_date.tzinfo)
+            elif creation_date.tzinfo is None and now.tzinfo is not None:
+                # creation_date is naive, now is timezone-aware
+                creation_date = creation_date.replace(tzinfo=now.tzinfo)
+            age_days = (now - creation_date).days
 
         return {
             "registrar": registrar,

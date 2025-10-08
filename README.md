@@ -1,57 +1,49 @@
-Absolutely ✅ — here’s your **final, polished, copy-paste-ready `README.md`** file for your **PhishProto** project.
-You can paste this directly into your repository root (replacing the existing one).
-Everything is perfectly formatted for **GitHub**, **hackathon submissions**, and **resume showcases**.
+
+# 🛡️ PhishFree — Real-Time AI Phishing Detection & Prevention
+
+PhishFree is an **AI-powered real-time phishing-detection framework** that integrates text, image, and domain-graph intelligence with explainable browser-extension alerts.
+It combines **RoBERTa (LLM)** + **CLIP (CNN)** + **GraphSAGE (GNN)** + **LightGBM ensemble**, anchored to the blockchain for verification.
 
 ---
 
-```markdown
-# 🛡️ PhishProto — Real-Time AI/ML-Based Phishing Detection
+## 🚀 Key Features
 
-PhishProto is a **real-time phishing detection and prevention system** built for the **Smart India Hackathon (SIH)** problem statement.  
-It integrates **AI/ML text analysis**, **URL heuristics**, and **browser extension alerts** to protect users from phishing websites in real time.
-
----
-
-## 🚀 Features
-
-- 🤖 **Transformer-based text analysis (RoBERTa)** for phishing intent detection  
-- 🌐 **URL intelligence**: Redirects, SSL, WHOIS, ASN, and DNS checks  
-- 🧮 **Aggregate risk scoring** with 🟢🟠🔴 indicators  
-- 📊 **Dashboard with analytics** — logs, charts, and exportable reports  
-- ⛓️ **Blockchain anchoring** of analysis logs (for tamper-proof verification)  
-- 🧩 **Chrome Extension** for real-time browser alerts and feedback
+* 🤖 **LLM (RoBERTa)** — Detects phishing language and social-engineering patterns
+* 🖼️ **CNN (CLIP + MLP Head)** — Identifies visual spoofing / fake brand UIs
+* 🌐 **GNN (GraphSAGE)** — Flags malicious domain relationships (redirects, ASNs, WHOIS)
+* 🧮 **LightGBM Fusion** — Combines multi-modal scores into one risk index
+* ⛓️ **Web3 Anchoring** — Immutable log of analyses on Ethereum Sepolia
+* 🧩 **Chrome Extension (MV3)** — Live site-risk banners & explainable breakdowns
 
 ---
 
-## 🛠️ Tech Stack
+## 🧠 Tech Stack
 
-| Layer | Technologies |
-|:------|:--------------|
-| **Backend** | Python (Flask, Transformers, Torch, WHOIS, DNSPython, Web3) |
-| **Frontend** | HTML, CSS, Chart.js (for dashboard visualization) |
-| **Extension** | Chrome Extension (Manifest V3, JS, HTML, CSS) |
-| **Deployment** | Docker & docker-compose |
-| **Blockchain** | Web3.py (Ethereum / Sepolia Testnet Anchoring) |
+| Layer              | Technologies                                           |
+| :----------------- | :----------------------------------------------------- |
+| **Language / Env** | Python 3.10.0                                          |
+| **AI / ML**        | PyTorch, Transformers, Sentence-Transformers, LightGBM |
+| **Graph Engine**   | PyTorch Geometric ( GraphSAGE fallback )               |
+| **Backend API**    | Flask + Flask-CORS                                     |
+| **Blockchain**     | Web3.py (Ethereum Sepolia)                             |
+| **Frontend / UI**  | HTML + JS + Tailwind (CSS)                             |
+| **Extension**      | Manifest V3 Chrome Extension                           |
 
 ---
 
 ## 📂 Project Structure
 
 ```
-
-SIH/
+PhishFree/
 │── backend/
 │   ├── app.py
-│   ├── anchor.py
-│   ├── domain_info.py
 │   ├── llm_model.py
-│   ├── redirect.py
-│   ├── ensemble.py
 │   ├── cnn_model.py
 │   ├── gnn_model.py
-│   ├── static/dashboard.html
-│   ├── aggregate_log.csv
-│   └── anchors.csv
+│   ├── ensemble.py
+│   ├── domain_info.py
+│   ├── anchor.py
+│   └── ...
 │
 │── extension/
 │   ├── manifest.json
@@ -62,151 +54,66 @@ SIH/
 │   └── popup.css
 │
 │── requirements.txt
-│── docker-compose.yml
-│── Dockerfile
+│── .gitignore
 │── README.md
-
-````
+```
 
 ---
 
-## ⚙️ Installation (Manual Setup)
+## ⚙️ Setup Guide (Manual)
 
-### 🧩 Step 1 — Clone the Repository
+### 1️⃣ Clone the Repository
+
 ```bash
-git clone https://github.com/your-username/phishproto.git
-cd phishproto
-````
+git clone https://github.com/Sahil-Scripts/PhishFree.git
+cd PhishFree
+```
 
-### 🧱 Step 2 — Create Virtual Environment
+### 2️⃣ Create & Activate Virtual Environment (Python 3.10)
 
 ```bash
 python -m venv venv
-# Activate
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # Linux / Mac
+venv\Scripts\activate          # Windows
+# or
+source venv/bin/activate       # Linux / macOS
 ```
 
-### 📦 Step 3 — Install Dependencies
-
-Install all dependencies for backend, AI models, Web3, and analytics.
+### 3️⃣ Install Dependencies
 
 ```bash
 pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
+pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 ```
 
-> 💡 If you face PyTorch Geometric issues on Windows, install CPU wheels directly:
+> 💡 For GPU with CUDA 12.1:
 >
 > ```bash
-> pip install torch==2.2.2+cpu torchvision==0.17.2+cpu torchaudio==2.2.2+cpu --index-url https://download.pytorch.org/whl/cpu
+> pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+> pip install -r requirements.txt
 > ```
 
 ---
 
-### 🧠 Step 4 — Run Backend Server
+## 🧠 Run Backend Server
 
 ```bash
 cd backend
 python app.py
 ```
 
-Backend starts at:
+Backend starts at **[http://127.0.0.1:5000](http://127.0.0.1:5000)**
 
-> 🔗 **[http://127.0.0.1:5000/](http://127.0.0.1:5000/)**
-
-Test if it’s running:
+Test:
 
 ```bash
 curl http://127.0.0.1:5000/health
 ```
 
-Expected response:
-
-```json
-{ "status": "OK", "service": "phish-proto-backend" }
-```
+Expected → `{"status":"OK","service":"phishfree-backend"}`
 
 ---
 
-## 🐳 Running with Docker
-
-You can containerize and deploy the backend easily using Docker.
-
-### Build and Run:
-
-```bash
-docker-compose up --build
-```
-
-Backend will start automatically and run on port **5000**.
-
----
-
-## 🌐 Load Chrome Extension
-
-1. Open **Google Chrome** (or Edge/Brave).
-2. Navigate to: `chrome://extensions/`
-3. Toggle **Developer Mode** ON (top right).
-4. Click **Load unpacked**.
-5. Select the `extension/` folder from this project.
-6. Pin the **PhishProto** extension to your toolbar.
-
-✅ The extension will now:
-
-* Automatically analyze websites you visit.
-* Display **risk banners** on suspicious pages.
-* Provide explainable results in the popup.
-
----
-
-## 📊 Dashboard Access
-
-Visit:
-
-> [http://127.0.0.1:5000/static/dashboard.html](http://127.0.0.1:5000/static/dashboard.html)
-
-You can:
-
-* 📈 View high, medium, and low risk distributions
-* 🕵️ See text and URL analysis results
-* ⛓️ Track anchored blockchain entries
-* 🧾 Export logs as CSV reports
-
----
-
-## 🧠 Explanation of AI Components
-
-| Model                 | Description                                            |
-| :-------------------- | :----------------------------------------------------- |
-| **LLM (RoBERTa)**     | Analyzes message/email content for phishing intent     |
-| **CNN (CLIP)**        | Detects visual spoofing and brand impersonation        |
-| **GNN (GraphSAGE)**   | Maps domains, redirects, and network relationships     |
-| **LightGBM Ensemble** | Combines model scores into a final phishing risk score |
-
-Each model contributes to the **aggregate score**, classified as:
-🟢 Low Risk | 🟠 Medium Risk | 🔴 High Risk
-
----
-
-## 🔐 Blockchain Anchoring
-
-Every analysis batch can be **anchored on the Ethereum Sepolia Testnet** using Web3.py.
-Anchors are logged in `anchors.csv` and verified through smart transactions.
-
-Command example:
-
-```bash
-curl -X POST http://127.0.0.1:5000/aggregate/anchor -H "Content-Type: application/json" -d '{"n":50,"test_mode":false}'
-```
-
-This ensures **tamper-proof verification** of phishing detection logs.
-
----
-
-## 🧩 Environment Variables (`.env`)
-
-Create a `.env` file inside `/backend` and configure:
+## 🧩 Environment Variables (`backend/.env`)
 
 ```
 WEB3_RPC_URL=https://sepolia.infura.io/v3/<your-infura-id>
@@ -218,37 +125,127 @@ RATE_LIMIT_WINDOW=60
 
 ---
 
-## 🧠 Optional: Local Health Tests
+## 🧱 Run with Docker
 
-Test all main endpoints manually:
+```bash
+docker build -t phishfree-backend .
+docker run -p 5000:5000 phishfree-backend
+```
+
+or
+
+```bash
+docker-compose up --build
+```
+
+---
+
+## 🌐 Load Chrome Extension
+
+1. Open **Chrome** → `chrome://extensions/`
+2. Enable **Developer Mode**
+3. Click **Load unpacked**
+4. Select the `extension/` folder
+5. Pin 🛡️ **PhishFree** to toolbar
+
+✅ Now the extension will automatically:
+
+* Analyze every page visit
+* Show 🟢🟠🔴 risk banner
+* Provide “Run CNN” / “Run GNN” buttons for manual analysis
+* Display explainable model scores
+
+---
+
+## 📊 Dashboard Access
+
+Visit → **[http://127.0.0.1:5000/static/dashboard.html](http://127.0.0.1:5000/static/dashboard.html)**
+
+You can:
+
+* View risk distribution charts
+* Inspect text / visual / graph scores
+* Review anchored logs
+* Export CSV reports
+
+---
+
+## 🧠 AI Model Breakdown
+
+| Model               | Purpose                                       |
+| :------------------ | :-------------------------------------------- |
+| **RoBERTa (LLM)**   | Detects phishing intent in page/email text    |
+| **CLIP (CNN Head)** | Flags visual spoofing and brand impersonation |
+| **GraphSAGE (GNN)** | Finds domain/network relationships            |
+| **LightGBM Fusion** | Combines all model scores into final risk     |
+
+🟢 Low Risk | 🟠 Medium Risk | 🔴 High Risk
+
+---
+
+## ⛓️ Blockchain Anchoring
+
+Every aggregate analysis can be anchored on Sepolia Testnet.
+
+Example:
+
+```bash
+curl -X POST http://127.0.0.1:5000/aggregate/anchor \
+-H "Content-Type: application/json" \
+-d '{"n":25,"test_mode":false}'
+```
+
+Logs saved to `backend/anchors.csv`.
+
+---
+
+## 🧾 Testing Endpoints
 
 ```bash
 # Health
 curl http://127.0.0.1:5000/health
 
-# Text-only LLM detection
-curl -X POST http://127.0.0.1:5000/analyze/text -H "Content-Type: application/json" -d "{\"text\":\"Urgent: verify your account now\"}"
+# Text-only
+curl -X POST http://127.0.0.1:5000/analyze/text \
+     -H "Content-Type: application/json" \
+     -d "{\"text\":\"Urgent: verify your account now\"}"
 
-# Full multi-modal detection
-curl -X POST http://127.0.0.1:5000/analyze/multi -H "Content-Type: application/json" -d "{\"text\":\"Invoice from CEO: transfer $5000\", \"domain\":\"example.com\"}"
+# Multi-modal (text + cnn)
+curl -X POST http://127.0.0.1:5000/analyze/multi \
+     -H "Content-Type: application/json" \
+     -d "{\"text\":\"Update your password\",\"run_models\":[\"cnn\"]}"
 ```
 
 ---
 
-## 🛡️ Contribution
+## 🧪 Verify Installation
 
-Pull requests are welcome!
-For major changes, open an issue first to discuss your proposed improvements.
+```bash
+python backend/test_cnn_local.py backend/demo_payloads/example1.png
+```
+
+Expected output ≈ `score ≈ 0.5–0.8` ✅
+
+---
+
+## 🧑‍💻 Contributing
+
+1. Fork the repo
+2. Create a branch (`git checkout -b feature-xyz`)
+3. Commit changes
+4. Push and open a PR
 
 ---
 
 ## 📜 License
 
-This project is licensed under the **MIT License**.
+MIT License © 2025 Sahil Pradhan
 
 ---
 
-## ✨ Credits
+## ❤️ Credits
 
-Developed by **Team Vyuhatech** for **Smart India Hackathon (SIH)**.
-Built with ❤️ using Python, Transformers, and Web3.
+Built by **Sahil Pradhan (@Sahil-Scripts)** under Team Vyuhatech for Smart India Hackathon 2025.
+Powered by Python 3.10, Transformers, CLIP, LightGBM, and Web3.
+
+---

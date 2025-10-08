@@ -1,47 +1,132 @@
-# Python
+# ==========================================================
+# PYTHON / ENVIRONMENT
+# ==========================================================
 venv/
+env/
+.venv/
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 *.pwl
+*.egg-info/
+.eggs/
+*.egg
+*.so
+*.dll
+*.bin
+*.lock
 
-# Envs / secrets
+# ==========================================================
+# ENV / SECRETS / KEYS
+# ==========================================================
 .env
-backend/.env
 *.env
+backend/.env
+.env.*
+config.json
+credentials.json
+key.json
+secrets.json
+wallet_private_key.txt
 
-# Logs and generated CSVs
+# ==========================================================
+# LOGS / CSV / CHECKPOINTS
+# ==========================================================
+*.log
+*.csv
+*.bak
 backend/aggregate_log.csv
 backend/anchors.csv
 backend/anchors.csv.bak
 backend/false_positives.csv
-*.log
+backend/training_logs/
+backend/__cache__/
+logs/
+outputs/
+checkpoints/
+runs/
+wandb/
+mlruns/
 
-# IDE/editor
+# ==========================================================
+# MODEL FILES (DO NOT COMMIT LARGE WEIGHTS)
+# ==========================================================
+*.pt
+*.pth
+*.onnx
+*.tflite
+*.pb
+models/
+roberta_phish/
+clip_cache/
+__model_cache__/
+*.npz
+*.npy
+
+# ==========================================================
+# DATASETS / EXPORTS
+# ==========================================================
+data/
+datasets/
+samples/
+temp/
+tmp/
+*.zip
+*.tar
+*.gz
+*.bz2
+
+# ==========================================================
+# IDE / EDITOR / SYSTEM
+# ==========================================================
 .vscode/
 .idea/
 *.sublime-project
 *.sublime-workspace
-
-# OS
 .DS_Store
 Thumbs.db
+ehthumbs.db
+Icon?
+*.iml
 
-# Node / browser extension build (if any)
+# ==========================================================
+# BROWSER EXTENSION / FRONTEND
+# ==========================================================
 node_modules/
 dist/
 build/
+extension/node_modules/
+extension/build/
+*.crx
+*.pem
+*.zip
+*.js.map
 
-# Playwright outputs
+# ==========================================================
+# NOTEBOOKS / LAB
+# ==========================================================
+.ipynb_checkpoints/
+.jupyter/
+*.ipynb
+
+# ==========================================================
+# DOCKER / DEPLOYMENT
+# ==========================================================
+*.tar
+*.bak
+docker-compose.override.yml
+__docker_cache__/
+*.pid
+*.sock
+
+# ==========================================================
+# TESTS / REPORTS
+# ==========================================================
+pytest_cache/
+.playwright/
 playwright-report/
 videos/
 trace.zip
-
-# Docker
-*.tar
-docker-compose.override.yml
-
-# Mac / Windows
-ehthumbs.db
-Icon?
+coverage/
+htmlcov/

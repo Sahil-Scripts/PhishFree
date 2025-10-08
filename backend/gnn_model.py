@@ -216,7 +216,7 @@ class GraphEngine:
     # --------------------
     # Embedding / Node2Vec fallback (lightweight)
     # --------------------
-    def compute_node2vec_embeddings(self, dimensions: int = 64, walk_length: int = 10, num_walks: int = 80):
+    def compute_node2vec_embeddings(self, dimensions: int = 32, walk_length: int = 5, num_walks: int = 20):
         """
         If PyG & a real node2vec implementation is available, prefer that. Otherwise compute a deterministic lightweight embedding:
         embedding = [deg, log(1+deg), sin(deg*k), cos(deg*k) ...] truncated/padded to `dimensions`.
@@ -308,7 +308,7 @@ class GraphEngine:
             if self.raw_model is not None and torch is not None:
                 # prepare x and edge_index tensors
                 if self.node_features is None or self.edge_index is None:
-                    return None
+                    return 0.0  # Default score for unknown domains
                 x = torch.tensor(self.node_features, dtype=torch.float32, device=self.device)
                 edge_index = torch.tensor(self.edge_index, dtype=torch.long, device=self.device)
                 self.raw_model.eval()
@@ -317,14 +317,14 @@ class GraphEngine:
                 out_np = out.cpu().numpy() if hasattr(out, "cpu") else np.asarray(out)
                 if isinstance(domain_or_idx, str):
                     if domain_or_idx not in self._nodes_map:
-                        return None
+                        return 0.0  # Default score for unknown domains
                     idx = int(self._nodes_map[domain_or_idx])
                 else:
                     idx = int(domain_or_idx)
                 if 0 <= idx < len(out_np):
                     return float(out_np[idx])
                 else:
-                    return None
+                    return 0.0  # Default score for out of range
         except Exception:
             # fall through to embedding heuristic
             pass
@@ -341,7 +341,7 @@ class GraphEngine:
                 score = min(1.0, norm / (1.0 + norm))
                 return float(score)
             except Exception:
-                return None
+                return 0.0  # Default score on error
 
         # If provided an integer index and embeddings are keyed by index names
         if isinstance(domain_or_idx, int):
@@ -351,7 +351,9 @@ class GraphEngine:
                 vec = self.embeddings[name]
                 norm = float(np.linalg.norm(vec))
                 return float(min(1.0, norm / (1.0 + norm)))
-        return None
+        
+        # Default score for unknown domains (instead of None)
+        return 0.0
 
     def predict_all(self) -> Optional[np.ndarray]:
         """

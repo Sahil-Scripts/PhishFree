@@ -1,5 +1,5 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>PhishProto — Dashboard</title>
@@ -158,9 +158,9 @@
 }
 
 /* Reason column — allow wrapping and word-break so it won't force table-wide overflow */
-#resultsTable th:nth-child(5),
-#resultsTable td:nth-child(5) {
-  width: 55%;
+#resultsTable th:nth-child(8),
+#resultsTable td:nth-child(8) {
+  width: 35%;
   white-space: normal !important;
   word-break: break-word;
   overflow-wrap: anywhere;
@@ -168,10 +168,24 @@
 }
 
 /* Actions column — keep fixed size and right-aligned buttons */
-#resultsTable th:nth-child(6),
-#resultsTable td:nth-child(6) {
+#resultsTable th:nth-child(9),
+#resultsTable td:nth-child(9) {
   width: 180px;
   text-align: right;
+  white-space: nowrap;
+}
+
+/* Score columns - fixed width for better alignment */
+#resultsTable th:nth-child(3),
+#resultsTable td:nth-child(3),
+#resultsTable th:nth-child(4),
+#resultsTable td:nth-child(4),
+#resultsTable th:nth-child(5),
+#resultsTable td:nth-child(5),
+#resultsTable th:nth-child(6),
+#resultsTable td:nth-child(6) {
+  width: 80px;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -737,6 +751,8 @@
     <div>GNN nodes: <strong id="modelUI_gnnNodes">?</strong></div>
     <div id="modelUI_lastCheck" style="margin-left:auto;font-size:12px;color:var(--gray-600)">last: --</div>
     <button id="modelUI_refreshBtn" class="btn" style="margin-left:12px;padding:6px 10px;font-size:13px;">Refresh models</button>
+        <!-- add CNN & GNN quick check buttons -->
+    
   </div>
 
   <div class="container">
@@ -944,6 +960,29 @@
       </div>
     </div>
 
+    <!-- Model Performance Charts -->
+    <div class="row" style="margin-top: 20px;">
+      <div class="col col-12">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">Model Performance Comparison</h3>
+          </div>
+          <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 300px;">
+              <div class="chart-container">
+                <canvas id="modelComparisonChart"></canvas>
+              </div>
+            </div>
+            <div style="flex: 1; min-width: 300px;">
+              <div class="chart-container">
+                <canvas id="modelTrendsChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Results Table -->
     <div class="row" style="margin-top: 20px;">
       <div class="col col-12">
@@ -956,7 +995,10 @@
               <tr>
                 <th>Time</th>
                 <th>Risk Level</th>
-                <th>Score</th>
+                <th>Phish Score</th>
+                <th>LLM Score</th>
+                <th>CNN Score</th>
+                <th>GNN Score</th>
                 <th>Text/URL</th>
                 <th>Reasons</th>
                 <th>Actions</th>
@@ -982,7 +1024,7 @@
 
 <script>
   // Chart instances
-  let pieChart, lineChart;
+  let pieChart, lineChart, modelComparisonChart, modelTrendsChart;
 
   /* draw helpers */
   function initPieChart(ctx, counts) {
@@ -1034,6 +1076,137 @@
           x: { title: { display: true, text: 'Last 30 Checks' } }
         },
         plugins: { tooltip: { callbacks: { label: function(context) { return `Score: ${context.raw.toFixed(2)}`; } } } }
+      }
+    });
+  }
+
+  // Model comparison chart
+  function initModelComparisonChart(ctx, data) {
+    if (modelComparisonChart) modelComparisonChart.destroy();
+    
+    const llmScores = data.map(row => parseFloat(row.text_score || 0) || 0);
+    const cnnScores = data.map(row => parseFloat(row.cnn_score || 0) || 0);
+    const gnnScores = data.map(row => parseFloat(row.gnn_score || 0) || 0);
+    
+    modelComparisonChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['LLM', 'CNN', 'GNN'],
+        datasets: [{
+          label: 'Average Score',
+          data: [
+            llmScores.reduce((a, b) => a + b, 0) / llmScores.length,
+            cnnScores.reduce((a, b) => a + b, 0) / cnnScores.length,
+            gnnScores.reduce((a, b) => a + b, 0) / gnnScores.length
+          ],
+          backgroundColor: [
+            'rgba(67, 97, 238, 0.8)',
+            'rgba(247, 37, 133, 0.8)',
+            'rgba(76, 201, 164, 0.8)'
+          ],
+          borderColor: [
+            'rgba(67, 97, 238, 1)',
+            'rgba(247, 37, 133, 1)',
+            'rgba(76, 201, 164, 1)'
+          ],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { 
+            beginAtZero: true, 
+            max: 1,
+            ticks: { 
+              callback: function(value) { 
+                return (value * 100).toFixed(0) + '%'; 
+              } 
+            } 
+          }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return `Average Score: ${(context.raw * 100).toFixed(1)}%`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Model trends chart
+  function initModelTrendsChart(ctx, data) {
+    if (modelTrendsChart) modelTrendsChart.destroy();
+    
+    const recentData = data.slice(-20); // Last 20 entries
+    const labels = recentData.map((_, i) => i + 1);
+    
+    const llmScores = recentData.map(row => parseFloat(row.text_score || 0) || 0);
+    const cnnScores = recentData.map(row => parseFloat(row.cnn_score || 0) || 0);
+    const gnnScores = recentData.map(row => parseFloat(row.gnn_score || 0) || 0);
+    
+    modelTrendsChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'LLM Score',
+            data: llmScores,
+            borderColor: 'rgba(67, 97, 238, 1)',
+            backgroundColor: 'rgba(67, 97, 238, 0.1)',
+            tension: 0.3
+          },
+          {
+            label: 'CNN Score',
+            data: cnnScores,
+            borderColor: 'rgba(247, 37, 133, 1)',
+            backgroundColor: 'rgba(247, 37, 133, 0.1)',
+            tension: 0.3
+          },
+          {
+            label: 'GNN Score',
+            data: gnnScores,
+            borderColor: 'rgba(76, 201, 164, 1)',
+            backgroundColor: 'rgba(76, 201, 164, 0.1)',
+            tension: 0.3
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { 
+            beginAtZero: true, 
+            max: 1,
+            ticks: { 
+              callback: function(value) { 
+                return (value * 100).toFixed(0) + '%'; 
+              } 
+            } 
+          },
+          x: { 
+            title: { 
+              display: true, 
+              text: 'Last 20 Checks' 
+            } 
+          }
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return `${context.dataset.label}: ${(context.raw * 100).toFixed(1)}%`;
+              }
+            }
+          }
+        }
       }
     });
   }
@@ -1272,7 +1445,7 @@
       const scoreRaw = parseFloat(row.aggregate_score || 0) || 0;
       const scorePct = Math.round(Math.max(0, Math.min(1, scoreRaw)) * 100);
       let riskTier = 'low';
-      if (scoreRaw >= 0.75) riskTier = 'high';
+      if (scoreRaw >= 0.7) riskTier = 'high';
       else if (scoreRaw >= 0.4) riskTier = 'medium';
       const fillWidth = Math.max(3, scorePct);
       const fillClass = riskTier === 'high' ? 'risk-high' : riskTier === 'medium' ? 'risk-medium' : 'risk-low';
@@ -1292,9 +1465,23 @@
       if (rLower.includes('visual') || rLower.includes('cnn') || rLower.includes('image')) friendly.push('Visual similarity');
       if (rLower.includes('graph') || rLower.includes('gnn') || rLower.includes('node2vec')) friendly.push('Graph signal');
       let reasonsShort = friendly.length ? friendly.slice(0, 3).join(' · ') : (rawReasons ? rawReasons.slice(0, 120) : '—');
+      // Extract individual model scores
+      const llmScore = parseFloat(row.text_score || 0) || 0;
+      const cnnScore = parseFloat(row.cnn_score || 0) || 0;
+      const gnnScore = parseFloat(row.gnn_score || 0) || 0;
+      
+      // Format individual scores
+      const llmPct = Math.round(Math.max(0, Math.min(1, llmScore)) * 100);
+      const cnnPct = Math.round(Math.max(0, Math.min(1, cnnScore)) * 100);
+      const gnnPct = Math.round(Math.max(0, Math.min(1, gnnScore)) * 100);
+      
+      const llmHtml = `<span class="risk-pct">${llmPct}%</span>`;
+      const cnnHtml = `<span class="risk-pct">${cnnPct}%</span>`;
+      const gnnHtml = `<span class="risk-pct">${gnnPct}%</span>`;
+      
       const text = (row.text_excerpt || '').toString().slice(0, 80).replace(/\n/g, ' ');
       const displayText = (row.url || text).toString().slice(0, 120);
-      tr.innerHTML = `<td>${time}</td><td><span class="badge badge-${label}">${label.toUpperCase()}</span></td><td>${scoreHtml}</td><td title="${escapeHtml(displayText)}">${escapeHtml(displayText)}</td><td title="${escapeHtml(String(rawReasons))}">${escapeHtml(String(reasonsShort))}</td>`;
+      tr.innerHTML = `<td>${time}</td><td><span class="badge badge-${label}">${label.toUpperCase()}</span></td><td>${scoreHtml}</td><td>${llmHtml}</td><td>${cnnHtml}</td><td>${gnnHtml}</td><td title="${escapeHtml(displayText)}">${escapeHtml(displayText)}</td><td title="${escapeHtml(String(rawReasons))}">${escapeHtml(String(reasonsShort))}</td>`;
       if (highlightHost) {
         const rowUrl = (row.url || "").toString();
         try {
@@ -1379,6 +1566,8 @@
     const { counts, points } = summarizeCounts(filtered);
     initPieChart(document.getElementById('pieChart').getContext('2d'), counts);
     initLineChart(document.getElementById('lineChart').getContext('2d'), points.slice(-30));
+    initModelComparisonChart(document.getElementById('modelComparisonChart').getContext('2d'), filtered);
+    initModelTrendsChart(document.getElementById('modelTrendsChart').getContext('2d'), filtered);
     document.getElementById('countHigh').textContent = counts.high;
     document.getElementById('countMedium').textContent = counts.medium;
     document.getElementById('countLow').textContent = counts.low;
@@ -1422,6 +1611,8 @@
     document.getElementById('countLow').textContent = counts.low;
     initPieChart(document.getElementById('pieChart').getContext('2d'), counts);
     initLineChart(document.getElementById('lineChart').getContext('2d'), points.slice(-30));
+    initModelComparisonChart(document.getElementById('modelComparisonChart').getContext('2d'), currentData);
+    initModelTrendsChart(document.getElementById('modelTrendsChart').getContext('2d'), currentData);
     renderTopLists();
 
     const highlightParam = getHighlightParam();
@@ -1613,14 +1804,96 @@
           }
         };
         actionsTd.classList.add('actions-cell');
-        actionsTd.appendChild(gbtn);
-        actionsTd.appendChild(cbtn);
+        
         row.appendChild(actionsTd);
       });
     } catch (e) {
       console.warn('modelUI_addActionsToTableRows error', e);
     }
   }
+
+    // ---------------------------
+  // Dashboard: quick-run CNN/GNN from banner
+  // ---------------------------
+  function modelUI_getTargetUrlOrFirstRow() {
+    // 1) if highlight param present, use that
+    const h = getHighlightParam();
+    if (h) {
+      try { return decodeURIComponent(h); } catch (e) { return h; }
+    }
+    // 2) fallback: first visible row in results table (4th column contains text/url)
+    try {
+      const firstRow = document.querySelector('#resultsTable tbody tr');
+      if (firstRow) {
+        const urlCell = firstRow.querySelector('td:nth-child(4)');
+        if (urlCell) return urlCell.textContent.trim();
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  async function modelUI_runDashboardGNN() {
+    const target = modelUI_getTargetUrlOrFirstRow();
+    if (!target) { alert('No URL found to check (open dashboard with ?highlight=<url> or ensure results table is populated)'); return; }
+    const domain = getHostnameFromUrl(target);
+    modelUI_setBanner('Probing GNN...', '...');
+    modelUI_showPreview({}, 'GNN — running check…', {});
+    try {
+      const r = await fetch('/analyze/multi', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ type: 'gnn', payload: { url: target, domain } })
+      });
+      const j = await r.json().catch(() => ({}));
+      const { score, neighbors } = _extractScoreAndNeighbors(j, 'gnn');
+      const pct = Math.round(Math.max(0, Math.min(1, score)) * 100);
+      const short = `GNN check — ${pct}% similarity.`;
+      modelUI_showPreview(null, short, Object.assign({}, j, { __modelui_gnn_pct: pct, __modelui_neighbors: neighbors }));
+      await modelUI_refreshGraphAndCnnStatus();
+    } catch (e) {
+      console.error('modelUI_runDashboardGNN error', e);
+      modelUI_showPreview(null, 'GNN check failed (network). Check console.', { error: String(e) });
+      await modelUI_refreshGraphAndCnnStatus();
+    } finally {
+      // reset banner time
+      modelUI_setBanner(document.getElementById('modelUI_cnnState')?.innerText || 'Ready', document.getElementById('modelUI_gnnNodes')?.innerText || '?');
+    }
+  }
+
+  async function modelUI_runDashboardCNN() {
+    const target = modelUI_getTargetUrlOrFirstRow();
+    if (!target) { alert('No URL found to check (open dashboard with ?highlight=<url> or ensure results table is populated)'); return; }
+    const domain = getHostnameFromUrl(target);
+    modelUI_setBanner('Probing CNN...', '...');
+    modelUI_showPreview({}, 'CNN — running quick visual check…', {});
+    try {
+      // we don't have the screenshot from table; call server to run a fast imageless/cached CNN check.
+      const r = await fetch('/analyze/multi', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ type: 'cnn', payload: { url: target, domain } })
+      });
+      const j = await r.json().catch(() => ({}));
+      const { score } = _extractScoreAndNeighbors(j, 'cnn');
+      const pct = Math.round(Math.max(0, Math.min(1, score)) * 100);
+      const label = j.cnn_label || (pct >= 75 ? 'PHISH-LIKE' : pct >= 40 ? 'SUSPICIOUS' : 'LIKELY SAFE');
+      const short = `Visual check — ${label} (${pct}%).`;
+      modelUI_showPreview(null, short, Object.assign({}, j, { __modelui_cnn_pct: pct }));
+      await modelUI_refreshGraphAndCnnStatus();
+    } catch (e) {
+      console.error('modelUI_runDashboardCNN error', e);
+      modelUI_showPreview(null, 'CNN check failed (network). Check console.', { error: String(e) });
+      await modelUI_refreshGraphAndCnnStatus();
+    } finally {
+      modelUI_setBanner(document.getElementById('modelUI_cnnState')?.innerText || 'Ready', document.getElementById('modelUI_gnnNodes')?.innerText || '?');
+    }
+  }
+
+  // Hook the banner buttons once DOMReady wiring runs (add to existing wiring area)
+  // Add these event listeners near the bottom of your DOMContentLoaded wiring:
+  // (you can add these lines where modelRefreshBtn is wired)
+
+
 
   // ---------------------------
   // Preview renderer (single source of truth)

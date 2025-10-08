@@ -51,7 +51,7 @@ def combine_scores(text_score: float,
     g = _norm_score(gnn_score)
 
     if weights is None:
-        weights = {"text": 0.6, "cnn": 0.2, "gnn": 0.2}
+        weights = {"text": 0.5, "cnn": 0.3, "gnn": 0.2}  # Balanced weights with text priority
     # ensure keys present
     w_text = float(weights.get("text", 0.0))
     w_cnn = float(weights.get("cnn", 0.0))
@@ -75,11 +75,30 @@ def combine_scores(text_score: float,
 
     final = w_text * t + w_cnn * c + w_gnn * g
     final = max(0.0, min(1.0, final))
+    
+    # Apply intelligent combination logic - much more conservative
+    # If all models agree on low risk, be very conservative
+    low_risk_count = sum(1 for score in [t, c, g] if score < 0.2)
+    if low_risk_count >= 2:
+        final = final * 0.3  # Reduce final score by 70%
+    
+    # If any model is very low, reduce overall score
+    very_low_count = sum(1 for score in [t, c, g] if score < 0.1)
+    if very_low_count >= 1:
+        final = final * 0.5  # Reduce final score by 50%
+    
+    # If all models agree on high risk, be more confident
+    high_risk_count = sum(1 for score in [t, c, g] if score > 0.7)
+    if high_risk_count >= 2:
+        final = min(final * 1.2, 1.0)  # Increase final score by 20%, cap at 1.0
+    
+    # Ensure final score is within bounds
+    final = max(0.0, min(1.0, final))
 
-    # derive a human-friendly label
-    if final >= 0.6:
+    # derive a human-friendly label with moderate thresholds
+    if final >= 0.7:
         label = "phish"
-    elif final >= 0.35:
+    elif final >= 0.4:
         label = "suspicious"
     else:
         label = "legit"

@@ -1,0 +1,294 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PhishingProto</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header class="header">
+        <div class="logoRow">
+          <div class="logo-container">
+            <img src="icons/icon48.png" alt="PhishingProto Logo" class="logo" />
+            <div class="logo-pulse"></div>
+          </div>
+          <div>
+            <h1>PhishingProto</h1>
+            <div class="subtitle">Real-time Phishing Protection</div>
+          </div>
+        </div>
+        <div class="header-stats">
+          <div class="stat-item">
+            <div class="stat-value" id="totalScans">—</div>
+            <div class="stat-label">Total Scans</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="threatsBlocked">—</div>
+            <div class="stat-label">Threats Blocked</div>
+          </div>
+        </div>
+      </header>
+
+      <main id="main">
+        <div id="status" class="status">
+          <span class="loading-spinner"></span>
+          <span class="status-text">Analyzing current page security...</span>
+          <div class="progress-bar">
+            <div class="progress-fill"></div>
+          </div>
+        </div>
+
+        <div id="result" class="card hidden">
+          <div class="risk-header">
+            <div class="risk-indicator">
+              <div class="badge-container">
+                <div class="badge" id="badgeEmoji"></div>
+                <div class="risk-pulse"></div>
+              </div>
+              <div class="risk-visual">
+                <div class="risk-meter">
+                  <div id="riskMeterFill" class="risk-meter-fill"></div>
+                </div>
+                <div class="risk-labels">
+                  <span>Low</span>
+                  <span>Medium</span>
+                  <span>High</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="summaryRow">
+              <div class="left">
+                <div class="label" id="labelText">—</div>
+                <div class="confidence" id="confidenceText">Confidence: —%</div>
+              </div>
+              <div class="right">
+                <div class="score" id="scoreText">—</div>
+                <div class="score-label">Risk Score</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="timeRow">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            <small id="timestampText">—</small>
+          </div>
+
+          <div class="threat-breakdown">
+            <h3>Threat Indicators</h3>
+            <div class="indicators-grid" id="indicatorsGrid">
+              <!-- Will be populated by JavaScript -->
+            </div>
+          </div>
+
+          <div class="reasons-container">
+            <h3>Key Findings</h3>
+            <ul id="reasonsList" class="reasons"></ul>
+          </div>
+        </div>
+
+        <div id="noResult" class="card no-result hidden">
+          <div class="no-result-icon">🔍</div>
+          <h3>No Analysis Available</h3>
+          <p>Navigate to a webpage and click "Re-analyze" to begin security scanning.</p>
+        </div>
+
+        <div class="card about-card">
+          <div class="card-icon">ℹ️</div>
+          <div class="about-content">
+            <h3>About PhishingProto</h3>
+            <p>Real-time explainable phishing detection — combines page text + URL intelligence to give a risk score and human-readable reasons.</p>
+
+            <div class="legend">
+              <div class="legend-item">
+                <span class="risk-dot high"></span>
+                <span>High Risk</span>
+              </div>
+              <div class="legend-item">
+                <span class="risk-dot medium"></span>
+                <span>Medium Risk</span>
+              </div>
+              <div class="legend-item">
+                <span class="risk-dot low"></span>
+                <span>Low Risk</span>
+              </div>
+            </div>
+
+            <div class="toggle-container">
+              <label class="toggle">
+                <input id="autoAnalyzeToggle" type="checkbox" />
+                <span class="toggle-slider"></span>
+              </label>
+              <span>Auto-analyze pages</span>
+            </div>
+
+            <div class="privacy-note">
+              <strong>Privacy Note:</strong> Only page text excerpts (trimmed) and the visited URL are sent to your local backend for analysis. You can disable auto-analyze or use manual analyze. Data is logged locally (backend/aggregate_log.csv) for your review.
+            </div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="reanalyze" class="btn primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            Re-analyze
+          </button>
+          <button id="detailsBtn" class="btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            Details
+          </button>
+          <button id="openDashboard" class="btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Dashboard
+          </button>
+        </div>
+
+        <div id="detailsPanel" class="details hidden">
+          <div class="detailsHeader">
+            <div class="details-title">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="16" x2="12" y2="12"></line>
+                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+              </svg>
+              <strong>Analysis Details</strong>
+            </div>
+            <button id="closeDetails" class="closeBtn">Close</button>
+          </div>
+
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+              </svg>
+              <span>URL Analysis</span>
+            </div>
+            <div class="detailRow">
+              <strong>URL:</strong> 
+              <div id="detailUrl" class="mono" style="word-break: break-all;">—</div>
+            </div>
+            <div class="detailRow">
+              <strong>Domain Age:</strong> 
+              <div id="domainAge" class="mono">—</div>
+            </div>
+            <div class="detailRow">
+              <strong>SSL Certificate:</strong> 
+              <div id="sslInfo" class="mono">—</div>
+            </div>
+          </div>
+          
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path>
+              </svg>
+              <span>Content Analysis</span>
+            </div>
+            <div class="detailRow">
+              <strong>Text excerpt:</strong> 
+              <div id="detailText" class="mono">—</div>
+            </div>
+            <div class="detailRow">
+              <strong>Keywords detected:</strong>
+              <div id="keywordsList" class="keyword-container">—</div>
+            </div>
+          </div>
+          
+          <div class="detail-section">
+            <div class="detail-section-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+              <span>Threat Assessment</span>
+            </div>
+            <div class="detailRow">
+              <strong>Combined reasons:</strong>
+              <ul id="detailReasons"></ul>
+            </div>
+            <div class="detailRow">
+              <strong>Recommendation:</strong>
+              <div id="recommendationText" class="recommendation">—</div>
+            </div>
+          </div>
+
+          <div class="detail-actions">
+            <button id="copyJsonBtn" class="btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              Copy JSON
+            </button>
+            <button id="reportFpBtn" class="btn danger">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              Report False Positive
+            </button>
+            <button id="exportBtn" class="btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Export Report
+            </button>
+          </div>
+
+          <div class="detailRow">
+            <div class="detail-section-header">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="4 17 10 11 4 5"></polyline>
+                <line x1="12" y1="19" x2="20" y2="19"></line>
+              </svg>
+              <span>Raw JSON Data</span>
+            </div>
+            <pre id="rawJson" class="rawPre">—</pre>
+          </div>
+        </div>
+      </main>
+
+      <footer class="footer">
+        <div class="footer-content">
+          <div class="footer-links">
+            <span class="footer-link" id="settingsBtn">Settings</span>
+            <span class="footer-link" id="helpBtn">Help</span>
+          </div>
+          <small>PhishingProto v0.9.0 — Explainable phishing detection</small>
+          <div class="footer-status">
+            <span class="status-indicator" id="backendStatus"></span>
+            <span>Backend</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

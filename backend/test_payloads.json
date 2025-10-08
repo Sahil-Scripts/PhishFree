@@ -1,0 +1,92 @@
+[
+  {
+    "id": "phish_bank_1",
+    "text": "Dear Customer, we detected suspicious activity on your bank account. Verify your identity immediately at http://secure-bank-login.example/ to avoid account suspension.",
+    "expected": "suspicious",
+    "notes": "brand impersonation + urgent + URL"
+  },
+  {
+    "id": "phish_otp_1",
+    "text": "Your OTP is 492810. Enter this code to confirm your payment. If you did not request this, contact support immediately.",
+    "expected": "suspicious",
+    "notes": "OTP + urgency (often used in credential theft flows)"
+  },
+  {
+    "id": "phish_invoice_1",
+    "text": "Invoice attached: Invoice_8472.pdf. Please review and pay the outstanding balance immediately to avoid penalties.",
+    "expected": "suspicious",
+    "notes": "invoice lure + urgency"
+  },
+  {
+    "id": "phish_cloud_1",
+    "text": "You have a new message in your CloudDrive. Click here to view: http://clouddrive.example/view?id=2345",
+    "expected": "suspicious",
+    "notes": "cloud invite with external link"
+  },
+  {
+    "id": "phish_hr_1",
+    "text": "HR Notification: Your payroll details need verification. Please login to the employee portal to update your details: http://intranet-payroll.example/",
+    "expected": "suspicious",
+    "notes": "internal-looking HR message with link"
+  },
+  {
+    "id": "benign_meeting_1",
+    "text": "Hi team, the sprint planning meeting is tomorrow at 10:00 AM. Please review the agenda attached and confirm your availability.",
+    "expected": "benign",
+    "notes": "normal team meeting"
+  },
+  {
+    "id": "benign_newsletter_1",
+    "text": "Your monthly newsletter is ready! Click to see highlights from the community and upcoming events.",
+    "expected": "benign",
+    "notes": "marketing-style newsletter"
+  },
+  {
+    "id": "phish_subscription_1",
+    "text": "Payment failed for your subscription. Update your billing information now to continue service: http://subscriptions.example/update",
+    "expected": "suspicious",
+    "notes": "billing scare + link"
+  },
+  {
+    "id": "benign_personal_1",
+    "text": "Hey, can you send me the project files you mentioned yesterday? I want to review them before Friday.",
+    "expected": "benign",
+    "notes": "personal request"
+  },
+  {
+    "id": "phish_security_1",
+    "text": "Security alert: Unusual sign-in attempt detected. If this wasn't you, reset your password immediately at http://account.example/reset",
+    "expected": "suspicious",
+    "notes": "security alert + reset link"
+  },
+  {
+    "id": "adv_paraphrase_1",
+    "text": "We've noticed a potential issue with your account. Visit http://secure-bank-login.example/ now to re-verify.",
+    "expected": "suspicious",
+    "notes": "paraphrase of bank phishing"
+  },
+  {
+    "id": "adv_paraphrase_2",
+    "text": "Please confirm payment: use code 492810 to proceed. If you didn't authorize this action, contact us.",
+    "expected": "suspicious",
+    "notes": "paraphrase of OTP message"
+  },
+  {
+    "id": "adv_paraphrase_3",
+    "text": "Action required: An unpaid invoice (Invoice_8472.pdf) requires your attention. Click the link to settle.",
+    "expected": "suspicious",
+    "notes": "paraphrase of invoice lure"
+  },
+  {
+    "id": "adv_paraphrase_4",
+    "text": "A note was shared with you via CloudDrive—open the file here: http://clouddrive.example/view?id=2345",
+    "expected": "suspicious",
+    "notes": "paraphrase of cloud link"
+  },
+  {
+    "id": "adv_paraphrase_5",
+    "text": "Payroll update needed: please review your bank details in the employee portal to avoid delay.",
+    "expected": "suspicious",
+    "notes": "paraphrase of HR message"
+  }
+]

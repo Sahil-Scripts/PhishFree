@@ -1,0 +1,47 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pwl
+
+# Envs / secrets
+.env
+backend/.env
+*.env
+
+# Logs and generated CSVs
+backend/aggregate_log.csv
+backend/anchors.csv
+backend/anchors.csv.bak
+backend/false_positives.csv
+*.log
+
+# IDE/editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node / browser extension build (if any)
+node_modules/
+dist/
+build/
+
+# Playwright outputs
+playwright-report/
+videos/
+trace.zip
+
+# Docker
+*.tar
+docker-compose.override.yml
+
+# Mac / Windows
+ehthumbs.db
+Icon?

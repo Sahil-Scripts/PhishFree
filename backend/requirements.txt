@@ -1,0 +1,77 @@
+# ===========================
+# Core Python Runtime
+# ===========================
+python-dotenv==1.0.1
+pytz==2024.1
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.5.2
+lightgbm==4.3.0
+
+# ===========================
+# Deep Learning / ML Models
+# ===========================
+torch==2.2.2+cpu
+torchvision==0.17.2+cpu
+torchaudio==2.2.2+cpu
+transformers==4.41.2
+sentence-transformers==3.0.1
+datasets==2.19.0
+accelerate==0.30.1
+evaluate==0.4.2
+
+# ===========================
+# Graph Neural Networks (PyTorch Geometric)
+# Use the CPU wheels to avoid WinError 127
+# ===========================
+torch-geometric==2.5.3
+torch-scatter==2.1.2
+torch-sparse==0.6.18
+torch-cluster==1.6.3
+torch-spline-conv==1.2.2
+
+# ===========================
+# Web Backend & APIs
+# ===========================
+Flask==3.0.3
+Flask-Cors==4.0.1
+gunicorn==22.0.0
+
+# ===========================
+# Networking / Domain Intelligence
+# ===========================
+requests==2.32.3
+python-whois==0.8.0
+ipwhois==1.2.0
+dnspython==2.6.1
+tldextract==5.1.2
+
+# ===========================
+# Blockchain / Web3
+# ===========================
+web3==6.18.0
+hexbytes==0.3.1
+eth-account==0.9.0
+eth-abi==5.1.0
+
+# ===========================
+# Image & Visualization
+# ===========================
+Pillow==10.3.0
+matplotlib==3.9.0
+
+# ===========================
+# Logging / Utilities
+# ===========================
+loguru==0.7.2
+regex==2024.5.15
+ftfy==6.2.0
+tqdm==4.66.4
+
+# ===========================
+# Security / HTTPS Support
+# ===========================
+certifi>=2024.2.2
+urllib3>=2.2.1
+idna>=3.7
+charset-normalizer>=3.3.2

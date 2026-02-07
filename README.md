@@ -1,5 +1,5 @@
 
-# 🛡️ PhishFree — Real-Time AI Phishing Detection & Prevention
+# 🛡️ PhishProto — Real-Time AI Phishing Detection & Prevention
 
 PhishFree is an **AI-powered real-time phishing-detection framework** that integrates text, image, and domain-graph intelligence with explainable browser-extension alerts.
 It combines **RoBERTa (LLM)** + **CLIP (CNN)** + **GraphSAGE (GNN)** + **LightGBM ensemble**, anchored to the blockchain for verification.
@@ -249,3 +249,4 @@ Built by **Sahil Pradhan (@Sahil-Scripts)** under Team Vyuhatech for Smart India
 Powered by Python 3.10, Transformers, CLIP, LightGBM, and Web3.
 
 ---
+
